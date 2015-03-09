@@ -1,5 +1,6 @@
 #pragma once
 
+#include "type_array.h"
 #include "MyTime.h"
 #include "gsl\gsl_math.h"
 #include "gsl\gsl_multimin.h"
@@ -16,52 +17,8 @@
 
 #define DEGREE (M_PI/180.)
 
-template<class type>
-class TypeArray: public CArray<type>
-{
-public:
-	TypeArray()	{}
-	TypeArray(const TypeArray& ref)	{ RemoveAll(); Copy(ref); }
-	TypeArray& operator << (const type &d) {(*this).Add(d); return (*this);}
-	TypeArray& operator =(const TypeArray& arr)
-	{
-		RemoveAll(); Copy(arr);
-		return *this;
-	}
-	operator type*() {return CArray<type>::GetData();}
-	BOOL operator==(const TypeArray &ref)
-	{
-		if (GetSize() != ref.GetSize()) return FALSE;
-		for (int i = 0; i < GetSize(); i++)
-		{
-			if (operator[](i) != ref[i]) return FALSE;
-		}
-		return TRUE;
-	}
-	type get(int n) const
-	{
-		if (n < GetSize())
-		{
-			return operator[](n);
-		}
-		else
-		{
-			return 0;
-		}
-	}
-	BOOL HasValues() const {return (GetSize() != 0);}
-};
-
-class DoubleArray: public TypeArray<double>
-{
-public:
-	DoubleArray() {};
-	DoubleArray(const DoubleArray& ref): TypeArray<double>(ref) {};
-
-	gsl_vector* CreateGSLReplica();
-	void operator= (const gsl_vector& vector);
-	virtual void Serialize(CArchive& ar);
-};
+void Convert_gsl_vector_to_DoubleArray(const gsl_vector* vector, DoubleArray& arr);
+gsl_vector* CreateGSLReplica(const DoubleArray& arr);
 
 struct SolverErrors 
 {
@@ -296,7 +253,7 @@ public:
 	int Run(FuncParams* _params, DoubleArray &initX, DoubleArray &initdX, const SolverErrors &Err)
 	{
 		MyTimer Timer1; Timer1.Start(); double size; CleanUp(); 
-		X = initX.CreateGSLReplica(); dX = initdX.CreateGSLReplica(); F.n = initX.GetSize(); 
+		X = CreateGSLReplica(initX); dX = CreateGSLReplica(initdX); F.n = initX.GetSize(); 
 		params = _params; ASSERT(params); params->PrepareBuffers(); err = Err;
 		s = gsl_multimin_fminimizer_alloc (fminimizer_type, F.n);
 		gsl_multimin_fminimizer_set (s, &F, X, dX); 
@@ -310,7 +267,7 @@ public:
 		}
 		while (status == GSL_CONTINUE && cntr.iter < max_iter);
 
-		Roots = *(s->x); minimum_value = s->fval;
+		Convert_gsl_vector_to_DoubleArray(s->x, Roots); minimum_value = s->fval;
 		params->DestroyBuffers();
 		dt = Timer1.StopStart();
 		return status;
@@ -392,7 +349,7 @@ public:
 					if (diff < minimum_value)
 					{
 						minimum_value = diff;
-						Roots = *film;					
+						Convert_gsl_vector_to_DoubleArray(film, Roots);					
 					}
 				}
 			}
@@ -498,7 +455,7 @@ public:
 		MyTimer Timer1; Timer1.Start(); CleanUp(); 
 		params = _params; ASSERT(params); params->PrepareBuffers(); 
 		F.p = p = init_a.GetSize(); F.n = n = params->GetPointsNum(); 
-		initX = init_a.CreateGSLReplica(); err = Err;
+		initX = CreateGSLReplica(init_a); err = Err;
 		s = gsl_multifit_fdfsolver_alloc (multifit_fdfsolver_type, n, p);
 		gsl_multifit_fdfsolver_set (s, &F, initX);
 		do
@@ -508,7 +465,7 @@ public:
 			status = gsl_multifit_test_delta (s->dx, s->x, err.abs, err.rel);
 		}
 		while (status == GSL_CONTINUE && cntr.iter < max_iter);
-		a = *(s->x);
+		Convert_gsl_vector_to_DoubleArray(s->x, a);
 		if (status == GSL_SUCCESS)
 		{
 			gsl_matrix *covar = gsl_matrix_alloc(p, p);
@@ -516,7 +473,7 @@ public:
 			{
 				gsl_multifit_covar(s->J, 0.0, covar);
 				double c = GSL_MAX_DBL(1, gsl_blas_dnrm2(s->f) / sqrt((double)(n - p))); 
-				da = (gsl_matrix_diagonal (covar)).vector;
+				Convert_gsl_vector_to_DoubleArray(&((gsl_matrix_diagonal (covar)).vector), da);
 				for (int i = 0; i < da.GetSize(); i++)
 				{
 					da[i] = fabs(c*sqrt(da[i]));

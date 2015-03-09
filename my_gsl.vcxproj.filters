@@ -29,9 +29,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="my_gsl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -39,6 +36,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\my_gsl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="my_gslApp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

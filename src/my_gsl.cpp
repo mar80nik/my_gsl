@@ -1,38 +1,6 @@
 #include "stdafx.h"
 #include "my_gsl.h"
 
-void DoubleArray::operator=( const gsl_vector& vector )
-{
-	double t; RemoveAll();
-	for (size_t i = 0; i < vector.size; i++)  
-	{
-		t = gsl_vector_get (&vector, i);
-		(*this).Add(t);
-	}
-}
-gsl_vector* DoubleArray::CreateGSLReplica()
-{
-	gsl_vector* ret=NULL; double* arr = GetData(); int size = GetSize();
-	ret = gsl_vector_alloc (size); ASSERT(ret);
-
-	for (int i = 0; i < size; i++)  
-		gsl_vector_set (ret, i, arr[i]);
-	return ret;
-}
-void DoubleArray::Serialize( CArchive& ar )
-{
-	int i, n; double t;
-	if(ar.IsStoring())
-	{
-		n = GetSize(); ar << n; 
-		for(i = 0; i < n; i++) { t = operator[](i); ar << t; }
-	}
-	else
-	{		
-		RemoveAll(); ar >> n; 
-		for(i = 0; i < n; i++) { ar >> t; Add(t); }
-	}
-}
 //////////////////////////////////////////////////////////////////////////
 BaseForMultiFitterFuncParams::
 	BaseForMultiFitterFuncParams(const size_t _p, 
@@ -134,6 +102,27 @@ double BaseForFitFunc::GetXrelY( double &x ) { double ret = pFunction(x, a, a.Ge
 ComplexGSL sqrt( ComplexGSL& c )	{ return ComplexGSL(gsl_complex_sqrt(c.z)); }
 ComplexGSL pow2( ComplexGSL& c )	{ return ComplexGSL(gsl_complex_mul(c.z,c.z)); }
 ComplexGSL exp( ComplexGSL& c )		{ return ComplexGSL(gsl_complex_exp(c.z)); }
+
+void Convert_gsl_vector_to_DoubleArray( const gsl_vector* vector, DoubleArray& arr )
+{
+	double t; arr.RemoveAll();
+	for (size_t i = 0; i < vector->size; i++)  
+	{
+		t = gsl_vector_get (vector, i);
+		arr << t;
+	}
+}
+
+gsl_vector* CreateGSLReplica( const DoubleArray& arr )
+{
+	gsl_vector* ret=NULL; const double* data = arr.GetData(); int size = arr.GetSize();
+	ret = gsl_vector_alloc (size); ASSERT(ret);
+
+	for (int i = 0; i < size; i++)  
+		gsl_vector_set (ret, i, data[i]);
+	return ret;
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 int FFTRealTransform::Main()

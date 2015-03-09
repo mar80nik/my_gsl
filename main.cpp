@@ -2,7 +2,7 @@
 //
 
 #include "stdafx.h"
-#include "my_gsl.h"
+#include "my_gslApp.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
