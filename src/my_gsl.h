@@ -27,16 +27,6 @@ struct SolverErrors
 	SolverErrors(double _abs, double _rel = 0) {CleanUp(); abs = _abs; rel = _rel; } 
 	void CleanUp() {abs = rel = 0.;}
 };
-
-struct PerfomanceInfoMk1 
-{
-	SolverErrors err;
-	struct Counters {size_t func_call, iter; Counters() {CleanUp();} void CleanUp() {func_call = iter = 0;}} cntr;
-	ms dt; int status; size_t max_iter;
-	PerfomanceInfoMk1() {status = GSL_FAILURE; max_iter = 0; CleanUp();}
-	virtual ~PerfomanceInfoMk1() { CleanUp(); }
-	virtual void CleanUp() {status = GSL_FAILURE; max_iter = 0; err.CleanUp(); cntr.CleanUp();}
-};
 //////////////////////////////////////////////////////////////////////////
 struct ComplexImGSL {double Im; ComplexImGSL(double i=1.) {Im=i;}};
 struct ComplexReGSL {double Re; ComplexReGSL(double r=0) {Re=r;}};
@@ -53,16 +43,17 @@ public:
 	ComplexGSL(ComplexReGSL r) { z=gsl_complex_rect(r.Re,0); }
 	ComplexGSL(ComplexImGSL i) { z=gsl_complex_rect(0,i.Im); }
 	~ComplexGSL() {};
-	ComplexGSL operator-(ComplexGSL& c)		{ return ComplexGSL(gsl_complex_sub(z,c.z)); }
-	ComplexGSL operator-(double r)			{ return ComplexGSL(gsl_complex_sub_real(z,r)); }
-	ComplexGSL operator+(ComplexGSL& c)		{ return ComplexGSL(gsl_complex_add(z,c.z)); }
-	ComplexGSL operator+(double r)			{ return ComplexGSL(gsl_complex_add_real(z,r)); }
-	ComplexGSL operator/(ComplexGSL& c)		{ return ComplexGSL(gsl_complex_div(z,c.z)); }
-	ComplexGSL operator*(ComplexGSL& c)		{ return ComplexGSL(gsl_complex_mul(z,c.z)); }
-	ComplexGSL operator*(double r)			{ return ComplexGSL(gsl_complex_mul_real(z,r)); }
-	ComplexGSL operator*(ComplexImGSL& i)	{ return ComplexGSL(gsl_complex_mul_imag(z,i.Im)); }
-	void operator*=(double r)				{ z=gsl_complex_mul_real(z,r); return;}
-	void operator*=(ComplexImGSL i)			{ z=gsl_complex_mul_imag(z,i.Im); return;}
+	ComplexGSL operator-(const ComplexGSL& c)	{ return ComplexGSL(gsl_complex_sub(z,c.z)); }
+	ComplexGSL operator-(const double r)		{ return ComplexGSL(gsl_complex_sub_real(z,r)); }
+	ComplexGSL operator+(const ComplexGSL& c)	{ return ComplexGSL(gsl_complex_add(z,c.z)); }
+	ComplexGSL operator+(const double r)		{ return ComplexGSL(gsl_complex_add_real(z,r)); }
+	ComplexGSL operator/(const ComplexGSL& c)	{ return ComplexGSL(gsl_complex_div(z,c.z)); }
+	ComplexGSL operator*(const ComplexGSL& c)	{ return ComplexGSL(gsl_complex_mul(z,c.z)); }
+	void operator*=(const ComplexGSL& c)		{ z = gsl_complex_mul(z,c.z); }
+	ComplexGSL operator*(const double r)		{ return ComplexGSL(gsl_complex_mul_real(z,r)); }
+	ComplexGSL operator*(const ComplexImGSL& i)	{ return ComplexGSL(gsl_complex_mul_imag(z,i.Im)); }
+	void operator*=(const double r)				{ z=gsl_complex_mul_real(z,r); return;}
+	void operator*=(const ComplexImGSL i)		{ z=gsl_complex_mul_imag(z,i.Im); return;}
 	double abs2()							{ return gsl_complex_abs2(z); }
 
 };
@@ -113,9 +104,7 @@ struct BoundaryConditions
 	double min, max;
 	BoundaryConditions() {min = max = 0; }
 	BoundaryConditions(double _min, double _max) {min = _min; max = _max; }
-	double GetWidth() const { return (max - min);}
 };
-typedef CArray<BoundaryConditions> BoundaryConditionsArray;
 
 template <class FuncParams>
 class Solver1dTemplate: public SolverData
@@ -124,11 +113,11 @@ class Solver1dTemplate: public SolverData
 protected:
 	static double func(double x, void * data)
 	{
-		Solver1dTemplate<FuncParams> *solver = (Solver1dTemplate<FuncParams>*)data; 
-		FuncParams *params = solver->params;
+		Solver1dTemplate<FuncParams> *solver = (Solver1dTemplate<FuncParams>*)data; FuncParams *params = solver->params;
 		solver->cntr.func_call++;		
 		return (params->*(params->funcCB))(x);
 	};
+	typedef CArray<BoundaryConditions> BoundaryConditionsArray;
 //************************************************//
 protected:
 	gsl_root_fsolver *s;
@@ -200,16 +189,16 @@ public:
 		else
 		{
 			double x, dx = (X.max - X.min)/(subrgns_max - 1); 
-			double y_l, y_r = func(X.max, F.params);
+			BoundaryConditions y(func(X.min, F.params), 0);
 
 			for(int i = 1; i < subrgns_max; i++)
 			{
-				x = X.max - i*dx; y_l = func(x, F.params);
-				if ((y_l < 0 && y_r > 0) || (y_l > 0 && y_r < 0))
+				x = X.max - i*dx; y.max = func(x, F.params);
+				if ((y.min < 0 && y.max > 0) || (y.min > 0 && y.max < 0))
 				{
 					SubRgns.Add(BoundaryConditions(x, x + dx));
 				}
-				y_r = y_l;
+				y.min = y.max;
 			}
 		}
 		return GSL_SUCCESS;
@@ -379,31 +368,30 @@ typedef double (*pDerivFunc)(const double &x, const double *a, const size_t &p, 
 struct BaseForMultiFitterFuncParams:public BaseForFuncParams
 {
 public:
-	size_t n, p; const double *y; double *sigma; double leftmostX, rightmostX, dx;
+	size_t n, p; const double *y; double *sigma;
 	pDerivFunc *pDerivatives; pFunc pFunction;
 
-	BaseForMultiFitterFuncParams(const size_t _p, const DoubleArray &_x, const DoubleArray &_y, const DoubleArray &_sigma);
+	BaseForMultiFitterFuncParams(const size_t _p, const DoubleArray &_y, const DoubleArray &_sigma);
 	virtual ~BaseForMultiFitterFuncParams();
 	virtual double * PrepareDerivBuf(const double &x, const double *a, const size_t &p) { return NULL; };
 	size_t GetPointsNum() {return n;}
-	int f(const gsl_vector * x, gsl_vector * f);
-	int df(const gsl_vector * x, gsl_matrix * J);
+	int f(const gsl_vector * a, gsl_vector * f);
+	int df(const gsl_vector * a, gsl_matrix * J);
 	int FillSigma(const DoubleArray &sigma);
 };
 
-
-struct BaseForFitFunc: public SolverData
+struct BaseForFitFunc
 {
 	double leftmostX, rightmostX, dx;
 	DoubleArray a, da; pFunc pFunction;
 
-	BaseForFitFunc(): SolverData() { leftmostX = rightmostX = dx = 0; pFunction = NULL;}
+	BaseForFitFunc() { leftmostX = rightmostX = dx = 0; pFunction = NULL;}
 	double GetXabsY(const double &x);
 	double GetXrelY(double &x);
 };
 
 template <class FuncParams>
-class MultiFitterTemplate: public SolverData
+class MultiFitterTemplate: public SolverData, public BaseForFitFunc
 {
 private:
 	const gsl_multifit_fdfsolver_type *multifit_fdfsolver_type; 
@@ -433,14 +421,11 @@ protected:
 		return GSL_SUCCESS;
 	}
 public:	
-	DoubleArray a, da;
-
-public:
 	MultiFitterTemplate(const int _max_iter = 100): SolverData(_max_iter)
 	{
 		multifit_fdfsolver_type=gsl_multifit_fdfsolver_lmsder; s = NULL; initX = NULL;
-		F.f = f; F.df = df; F.fdf = fdf; 
-		F.params = this; params = NULL;		
+		F.f = f; F.df = df; F.fdf = fdf; F.params = this; 
+		params = NULL;		
 	}
 	virtual ~MultiFitterTemplate() {CleanUp();}
 	virtual void CleanUp()
@@ -450,38 +435,54 @@ public:
 		if (initX != NULL) { gsl_vector_free(initX); initX = NULL; }
 		a.RemoveAll(); da.RemoveAll(); params = NULL;
 	}
+	int CalculateFrom(const DoubleArray& x, const DoubleArray& y, const DoubleArray& sigma, DoubleArray& init_a)
+	{
+		FuncParams params(y, sigma); 
+		leftmostX = x[0]; rightmostX = x[params.n - 1]; dx = (rightmostX - leftmostX)/(params.n - 1);
+		Run(&params, init_a, SolverErrors(1e-6));
+		return status;
+	}
+protected:
 	int Run(FuncParams* _params, DoubleArray& init_a, const SolverErrors &Err)
 	{
 		MyTimer Timer1; Timer1.Start(); CleanUp(); 
-		params = _params; ASSERT(params); params->PrepareBuffers(); 
-		F.p = p = init_a.GetSize(); F.n = n = params->GetPointsNum(); 
-		initX = CreateGSLReplica(init_a); err = Err;
-		s = gsl_multifit_fdfsolver_alloc (multifit_fdfsolver_type, n, p);
-		gsl_multifit_fdfsolver_set (s, &F, initX);
-		do
+		if ((params = _params) != NULL)
 		{
-			cntr.iter++;
-			status = gsl_multifit_fdfsolver_iterate (s);
-			status = gsl_multifit_test_delta (s->dx, s->x, err.abs, err.rel);
-		}
-		while (status == GSL_CONTINUE && cntr.iter < max_iter);
-		Convert_gsl_vector_to_DoubleArray(s->x, a);
-		if (status == GSL_SUCCESS)
-		{
-			gsl_matrix *covar = gsl_matrix_alloc(p, p);
-			if (covar != NULL)
+			params->PrepareBuffers(); 
+			F.p = p = init_a.GetSize(); F.n = n = params->GetPointsNum(); 
+			initX = CreateGSLReplica(init_a); err = Err;
+			s = gsl_multifit_fdfsolver_alloc (multifit_fdfsolver_type, n, p);
+			gsl_multifit_fdfsolver_set (s, &F, initX);
+			do
 			{
-				gsl_multifit_covar(s->J, 0.0, covar);
-				double c = GSL_MAX_DBL(1, gsl_blas_dnrm2(s->f) / sqrt((double)(n - p))); 
-				Convert_gsl_vector_to_DoubleArray(&((gsl_matrix_diagonal (covar)).vector), da);
-				for (int i = 0; i < da.GetSize(); i++)
-				{
-					da[i] = fabs(c*sqrt(da[i]));
-				}
-				gsl_matrix_free(covar);
+				cntr.iter++;
+				status = gsl_multifit_fdfsolver_iterate (s);
+				status = gsl_multifit_test_delta (s->dx, s->x, err.abs, err.rel);
 			}
-		}	
-		dt=Timer1.StopStart(); params->DestroyBuffers();
+			while (status == GSL_CONTINUE && cntr.iter < max_iter);
+			Convert_gsl_vector_to_DoubleArray(s->x, a);
+			if (status == GSL_SUCCESS)
+			{
+				gsl_matrix *covar = gsl_matrix_alloc(p, p);
+				if (covar != NULL)
+				{
+					gsl_multifit_covar(s->J, 0.0, covar);
+					double c = GSL_MAX_DBL(1, gsl_blas_dnrm2(s->f) / sqrt((double)(n - p))); 
+					Convert_gsl_vector_to_DoubleArray(&((gsl_matrix_diagonal (covar)).vector), da);
+					for (int i = 0; i < da.GetSize(); i++)
+					{
+						da[i] = fabs(c*sqrt(da[i]));
+					}
+					gsl_matrix_free(covar);
+				}
+			}	
+			params->DestroyBuffers(); 
+		}
+		else
+		{
+			status = GSL_FAILURE;			
+		}
+		dt=Timer1.StopStart(); params = NULL;
 		return status;
 	}
 	HRESULT Fill_FitFunc(BaseForFitFunc* FitFunc)
@@ -499,12 +500,12 @@ public:
 	}
 };
 //////////////////////////////////////////////////////////////////////////
-
-class FFTRealTransform: public PerfomanceInfoMk1
+//////////////////////////////////////////////////////////////////////////
+class FFTRealTransform: public SolverData
 {
 public:
 	enum Direction {FORWARD, BACKWARD};
-	struct Params: public PerfomanceInfoMk1
+	struct Params: public SolverData
 	{
 		DoubleArray* y; Direction dir;
 		Params() { y=NULL; dir=FORWARD;}

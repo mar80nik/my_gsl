@@ -2,34 +2,31 @@
 #include "my_gsl.h"
 
 //////////////////////////////////////////////////////////////////////////
-BaseForMultiFitterFuncParams::
-	BaseForMultiFitterFuncParams(const size_t _p, 
-	const DoubleArray &_x, const DoubleArray &_y, const DoubleArray &_sigma): BaseForFuncParams(), p(_p)
+BaseForMultiFitterFuncParams::BaseForMultiFitterFuncParams(const size_t _p, const DoubleArray &_y, const DoubleArray &_sigma):
+	BaseForFuncParams(), p(_p)
 {		
 	ASSERT(_y.GetSize() ==_sigma.GetSize()); sigma = NULL;
 	y = _y.GetData(); FillSigma(_sigma); n =_y.GetSize(); 
 	ASSERT(n >= p);
-	leftmostX = _x[0]; rightmostX = _x[n - 1];
-	dx = (rightmostX - leftmostX)/(n - 1);
 	pDerivatives = NULL; pFunction = NULL; pDerivatives = new pDerivFunc[p];
 }
-int BaseForMultiFitterFuncParams::f( const gsl_vector * x, gsl_vector * f )
+int BaseForMultiFitterFuncParams::f( const gsl_vector * a, gsl_vector * f )
 {
 	for (size_t i = 0; i < n; i++)
 	{
-		gsl_vector_set (f, i, (pFunction(i, x->data, p) - y[i])/sigma[i]);
+		gsl_vector_set (f, i, (pFunction(i, a->data, p) - y[i])/sigma[i]);
 	}
 	return GSL_SUCCESS;
 }
-int BaseForMultiFitterFuncParams::df( const gsl_vector * x, gsl_matrix * J )
+int BaseForMultiFitterFuncParams::df( const gsl_vector * a, gsl_matrix * J )
 {
 	double *c;
 	for (size_t i = 0; i < n; i++)
 	{
-		c = PrepareDerivBuf(i, x->data, p);
+		c = PrepareDerivBuf(i, a->data, p);
 		for (size_t j = 0; j < p; j++)
 		{
-			gsl_matrix_set (J, i, j, pDerivatives[j](i, x->data, p, c)/sigma[i]);		
+			gsl_matrix_set (J, i, j, pDerivatives[j](i, a->data, p, c)/sigma[i]);		
 		}
 	}
 	return GSL_SUCCESS;
