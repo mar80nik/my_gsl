@@ -91,6 +91,26 @@ int BaseForMultiFitterFuncParams::FillSigma(const DoubleArray &_sigma)
 	return ret;
 }
 
+
+HRESULT BaseForFitFunc::MakeGraph(DoubleArray &x, DoubleArray &y)
+{
+	if (pFunction != NULL)
+	{
+		double dt = dx/3;
+		x.RemoveAll(); y.RemoveAll();
+		for(double t = leftmostX; t <= rightmostX; t += dt) 
+		{
+			x << t;
+			y << GetXabsY(t);
+		}
+		return S_OK;
+	}
+	else
+	{
+		return E_FAIL;
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 double BaseForFitFunc::GetXabsY( const double &x ) { return pFunction((x - leftmostX)/dx, a, a.GetSize()); }
 double BaseForFitFunc::GetXrelY( double &x ) { double ret = pFunction(x, a, a.GetSize()); x += leftmostX; return ret; }

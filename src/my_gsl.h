@@ -2,6 +2,7 @@
 
 #include "type_array.h"
 #include "MyTime.h"
+#include "MessageInspector.h"
 #include "gsl\gsl_math.h"
 #include "gsl\gsl_multimin.h"
 #include "gsl\gsl_errno.h"
@@ -388,6 +389,7 @@ struct BaseForFitFunc
 	BaseForFitFunc() { leftmostX = rightmostX = dx = 0; pFunction = NULL;}
 	double GetXabsY(const double &x);
 	double GetXrelY(double &x);
+	HRESULT MakeGraph(DoubleArray &x, DoubleArray &y);
 };
 
 template <class FuncParams>
@@ -439,8 +441,32 @@ public:
 	{
 		FuncParams params(y, sigma); 
 		leftmostX = x[0]; rightmostX = x[params.n - 1]; dx = (rightmostX - leftmostX)/(params.n - 1);
+		pFunction = params.pFunction;
 		Run(&params, init_a, SolverErrors(1e-6));
 		return status;
+	}
+	void GetReport(ControledLogMessage &log)
+	{		
+		log.T.Format("status = %s", gsl_strerror (status)); log << log.T;
+		log.T.Format("----------------------------------"); log << log.T;
+		if (status == GSL_SUCCESS)
+		{
+			for(int i = 0; i < a.GetSize(); i++)
+			{
+				log.T.Format("a%d = %g +/- %g%%", i, a[i], 100*da[i]/a[i]); log << log.T;
+			}
+		}
+		else
+		{
+			log.SetPriority(lmprHIGH);
+			for(int i = 0; i < a.GetSize(); i++)
+			{
+				log.T.Format("a%d = %g", i, a[i]); log << log.T;
+			}
+		}
+		log.T.Format("time = %g ms", dt.val()); log << log.T;
+		log.T.Format("func_cals = %d", cntr.func_call); log << log.T;
+		log.T.Format("iter_num = %d", cntr.iter); log << log.T;
 	}
 protected:
 	int Run(FuncParams* _params, DoubleArray& init_a, const SolverErrors &Err)
@@ -448,39 +474,42 @@ protected:
 		MyTimer Timer1; Timer1.Start(); CleanUp(); 
 		if ((params = _params) != NULL)
 		{
-			params->PrepareBuffers(); 
-			F.p = p = init_a.GetSize(); F.n = n = params->GetPointsNum(); 
-			initX = CreateGSLReplica(init_a); err = Err;
-			s = gsl_multifit_fdfsolver_alloc (multifit_fdfsolver_type, n, p);
-			gsl_multifit_fdfsolver_set (s, &F, initX);
-			do
+			if (init_a.GetSize() == FuncParams::ind_max)
 			{
-				cntr.iter++;
-				status = gsl_multifit_fdfsolver_iterate (s);
-				status = gsl_multifit_test_delta (s->dx, s->x, err.abs, err.rel);
-			}
-			while (status == GSL_CONTINUE && cntr.iter < max_iter);
-			Convert_gsl_vector_to_DoubleArray(s->x, a);
-			if (status == GSL_SUCCESS)
-			{
-				gsl_matrix *covar = gsl_matrix_alloc(p, p);
-				if (covar != NULL)
+				params->PrepareBuffers(); 
+				F.p = p = init_a.GetSize(); F.n = n = params->GetPointsNum(); 
+				initX = CreateGSLReplica(init_a); err = Err;
+				s = gsl_multifit_fdfsolver_alloc (multifit_fdfsolver_type, n, p);
+				gsl_multifit_fdfsolver_set (s, &F, initX);
+				do
 				{
-					gsl_multifit_covar(s->J, 0.0, covar);
-					double c = GSL_MAX_DBL(1, gsl_blas_dnrm2(s->f) / sqrt((double)(n - p))); 
-					Convert_gsl_vector_to_DoubleArray(&((gsl_matrix_diagonal (covar)).vector), da);
-					for (int i = 0; i < da.GetSize(); i++)
-					{
-						da[i] = fabs(c*sqrt(da[i]));
-					}
-					gsl_matrix_free(covar);
+					cntr.iter++;
+					status = gsl_multifit_fdfsolver_iterate (s);
+					status = gsl_multifit_test_delta (s->dx, s->x, err.abs, err.rel);
 				}
-			}	
-			params->DestroyBuffers(); 
+				while (status == GSL_CONTINUE && cntr.iter < max_iter);
+				Convert_gsl_vector_to_DoubleArray(s->x, a);
+				if (status == GSL_SUCCESS)
+				{
+					gsl_matrix *covar = gsl_matrix_alloc(p, p);
+					if (covar != NULL)
+					{
+						gsl_multifit_covar(s->J, 0.0, covar);
+						double c = GSL_MAX_DBL(1, gsl_blas_dnrm2(s->f) / sqrt((double)(n - p))); 
+						Convert_gsl_vector_to_DoubleArray(&((gsl_matrix_diagonal (covar)).vector), da);
+						for (int i = 0; i < da.GetSize(); i++)
+						{
+							da[i] = fabs(c*sqrt(da[i]));
+						}
+						gsl_matrix_free(covar);
+					}
+				}	
+				params->DestroyBuffers(); 
+			}
 		}
 		else
 		{
-			status = GSL_FAILURE;			
+				status = GSL_EINVAL;
 		}
 		dt=Timer1.StopStart(); params = NULL;
 		return status;
