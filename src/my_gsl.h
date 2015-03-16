@@ -390,6 +390,14 @@ struct BaseForFitFunc
 	double GetXabsY(const double &x);
 	double GetXrelY(double &x);
 	HRESULT MakeGraph(DoubleArray &x, DoubleArray &y);
+	BaseForFitFunc& operator=(const BaseForFitFunc& t)
+	{
+		a.RemoveAll(); da.RemoveAll();
+		a.Copy(t.a); da.Copy(t.da);
+		leftmostX = t.leftmostX; rightmostX = t.rightmostX; dx = t.dx;
+		pFunction = t.pFunction;
+		return *this;
+	}
 };
 
 template <class FuncParams>
@@ -445,7 +453,7 @@ public:
 		Run(&params, init_a, SolverErrors(1e-6));
 		return status;
 	}
-	void GetReport(ControledLogMessage &log)
+	virtual void GetReport(ControledLogMessage &log)
 	{		
 		log.T.Format("status = %s", gsl_strerror (status)); log << log.T;
 		log.T.Format("----------------------------------"); log << log.T;
@@ -467,6 +475,12 @@ public:
 		log.T.Format("time = %g ms", dt.val()); log << log.T;
 		log.T.Format("func_cals = %d", cntr.func_call); log << log.T;
 		log.T.Format("iter_num = %d", cntr.iter); log << log.T;
+	}
+	MultiFitterTemplate& operator=(const MultiFitterTemplate& t)
+	{
+		*((BaseForFitFunc*)this) = t;
+		*((SolverData*)this) = t;
+		return *this;
 	}
 protected:
 	int Run(FuncParams* _params, DoubleArray& init_a, const SolverErrors &Err)
