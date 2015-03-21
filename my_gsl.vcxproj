@@ -103,6 +103,7 @@
   <ItemGroup>
     <ClCompile Include="..\my_lib\src\MyTime.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\fittings.cpp" />
     <ClCompile Include="src\my_gsl.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -111,6 +112,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="my_gslApp.h" />
+    <ClInclude Include="src\fittings.h" />
     <ClInclude Include="src\my_gsl.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
