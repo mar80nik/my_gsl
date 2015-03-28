@@ -2,22 +2,23 @@
 #include "my_gsl.h"
 
 //////////////////////////////////////////////////////////////////////////
-BaseForMultiFitterFuncParams::BaseForMultiFitterFuncParams(const size_t _p, const DoubleArray &_y, const DoubleArray &_sigma):
+BaseForMultiFitterFuncParams::BaseForMultiFitterFuncParams(const size_t _p, 
+														   const DoubleArray &_x, const DoubleArray &_y, const DoubleArray &_sigma):
 	BaseForFuncParams(), p(_p)
 {		
 	ASSERT(_y.GetSize() ==_sigma.GetSize()); sigma = NULL;
-	y = _y.GetData(); FillSigma(_sigma); n =_y.GetSize(); 
-	ASSERT(n >= p);
+	x = _x.GetData(); y = _y.GetData(); FillSigma(_sigma); n =_y.GetSize(); 
 	pDerivatives = NULL; pFunction = NULL; pDerivatives = new pDerivFunc[p];
 }
 int BaseForMultiFitterFuncParams::f( const gsl_vector * a, gsl_vector * f )
 {
 	for (size_t i = 0; i < n; i++)
 	{
-		gsl_vector_set (f, i, (pFunction(i, a->data, p) - y[i])/sigma[i]);
+		gsl_vector_set (f, i, (pFunction(x[i], a->data, p) - y[i])/sigma[i]);
 	}
 	return GSL_SUCCESS;
 }
+
 int BaseForMultiFitterFuncParams::df( const gsl_vector * a, gsl_matrix * J )
 {
 	double *c;
@@ -26,11 +27,12 @@ int BaseForMultiFitterFuncParams::df( const gsl_vector * a, gsl_matrix * J )
 		c = PrepareDerivBuf(i, a->data, p);
 		for (size_t j = 0; j < p; j++)
 		{
-			gsl_matrix_set (J, i, j, pDerivatives[j](i, a->data, p, c)/sigma[i]);		
+			gsl_matrix_set (J, i, j, pDerivatives[j](x[i], a->data, p, c)/sigma[i]);		
 		}
 	}
 	return GSL_SUCCESS;
 }
+
 BaseForMultiFitterFuncParams::~BaseForMultiFitterFuncParams()
 {
 	delete[] pDerivatives;
@@ -92,11 +94,11 @@ int BaseForMultiFitterFuncParams::FillSigma(const DoubleArray &_sigma)
 }
 
 
-HRESULT BaseForFitFunc::MakeGraph(DoubleArray &x, DoubleArray &y)
+HRESULT BaseForFitFunc::MakeGraph(DoubleArray &x, DoubleArray &y, double leftmostX, double rightmostX, unsigned int N )
 {
-	if (pFunction != NULL)
+	if (pFunction != NULL && N > 0 )
 	{
-		double dt = dx/3;
+		double dt = (rightmostX - leftmostX)/N;
 		x.RemoveAll(); y.RemoveAll();
 		for(double t = leftmostX; t <= rightmostX; t += dt) 
 		{
@@ -112,8 +114,7 @@ HRESULT BaseForFitFunc::MakeGraph(DoubleArray &x, DoubleArray &y)
 }
 
 //////////////////////////////////////////////////////////////////////////
-double BaseForFitFunc::GetXabsY( const double &x ) { return pFunction((x - leftmostX)/dx, a, a.GetSize()); }
-double BaseForFitFunc::GetXrelY( double &x ) { double ret = pFunction(x, a, a.GetSize()); x += leftmostX; return ret; }
+double BaseForFitFunc::GetXabsY( const double &x ) { return pFunction(x, a, a.GetSize()); }
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 ComplexGSL sqrt( ComplexGSL& c )	{ return ComplexGSL(gsl_complex_sqrt(c.z)); }

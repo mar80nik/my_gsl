@@ -1,7 +1,10 @@
 #include "stdafx.h"
 #include "fittings.h"
 
-//////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
+////////////    f = a*x*x + b*x + c    //////////////////////////
+/////////////////////////////////////////////////////////////////
+
 double ParabolaFuncParams::func( const double &x, const double *a, const size_t &p )
 {
 	return a[ind_a]*x*x + a[ind_b]*x + a[ind_c];
@@ -12,12 +15,13 @@ double ParabolaFuncParams::df_dc( const double &x, const double *a, const size_t
 double ParabolaFitFunc::GetTop(double &x)
 {
 	x = (-a[ParabolaFuncParams::ind_b]/(2*a[ParabolaFuncParams::ind_a])); 
-	return GetXrelY(x);
+	return GetXabsY(x);
 }
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-//f = C + (A/(1 + exp(-2*k*(x - B))));
+/////////////////////////////////////////////////////////////////
+/////////    f = C + (A/(1 + exp(-2*k*(x - B))))     ////////////
+/////////////////////////////////////////////////////////////////
+
 double KneeFuncParams::func( const double &x, const double *a, const size_t &p )
 {
 	return a[ind_C] + (a[ind_A]/( 1 + exp(-2*a[ind_k]*(x - a[ind_B])) ));	
@@ -43,8 +47,15 @@ double KneeFuncParams::df_dk(const double &x, const double *a, const size_t &p, 
 }
 double KneeFitFunc::GetInflection( double &x, const double &level )
 {
-	x = a[KneeFuncParams::ind_B] + log(level/(1-level))/(2*a[KneeFuncParams::ind_k]);
-	return GetXrelY(x);
+	if (status == GSL_SUCCESS)
+	{
+		x = a[KneeFuncParams::ind_B] + log(level/(1-level))/(2*a[KneeFuncParams::ind_k]);
+		return GetXabsY(x);
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 double * KneeFuncParams::PrepareDerivBuf( const double &x, const double *a, const size_t &p )
@@ -52,17 +63,19 @@ double * KneeFuncParams::PrepareDerivBuf( const double &x, const double *a, cons
 	buf = exp(-2*a[ind_k]*(x - a[ind_B]));
 	return &buf;
 }
+
 /////////////////////////////////////////////////////////////////
 ////////////   f = A + C*exp(-(x - x0)^2/b)		     ////////////
 /////////////////////////////////////////////////////////////////
+
 double GaussFuncParams::func( const double &x, const double *a, const size_t &p )
 {
 	return a[ind_A] + a[ind_C]*exp(-(x - a[ind_x0])*(x - a[ind_x0])/a[ind_b]);
 }
 double GaussFuncParams::df_dA( const double &x, const double *a, const size_t &p, double *c )  { return 1; }
 double GaussFuncParams::df_dC( const double &x, const double *a, const size_t &p, double *c )  { return c[1];}
-double GaussFuncParams::df_dx0( const double &x, const double *a, const size_t &p, double *c ) { return 2*a[ind_C]*c[0]*c[1]; }
-double GaussFuncParams::df_db( const double &x, const double *a, const size_t &p, double *c )  { return a[ind_C]*c[0]*c[0]*c[1]; }
+double GaussFuncParams::df_dx0( const double &x, const double *a, const size_t &p, double *c ) { return 2*a[ind_C]*c[1]*c[0]; }
+double GaussFuncParams::df_db( const double &x, const double *a, const size_t &p, double *c )  { return 2*a[ind_C]*c[1]*c[0]*c[0]; }
 double * GaussFuncParams::PrepareDerivBuf( const double &x, const double *a, const size_t &p )
 {
 	buf[0] = (x - a[ind_x0])/a[ind_b]; buf[1] = exp(-a[ind_b]*buf[0]*buf[0]);
@@ -70,11 +83,12 @@ double * GaussFuncParams::PrepareDerivBuf( const double &x, const double *a, con
 }
 double GaussFitFunc::GetWidth()
 {
-	return 2*sqrt(a[GaussFuncParams::ind_b]);
+	return (status == GSL_SUCCESS ? 2*sqrt(a[GaussFuncParams::ind_b]):0);
 }
 /////////////////////////////////////////////////////////////////
-////////////   f = A*sin^2(W*x + x0) + C			     ////////////
+////////////   f = A*sin^2(W*x + x0) + C			 ////////////
 /////////////////////////////////////////////////////////////////
+
 double Sin2FuncParams::func( const double &x, const double *a, const size_t &p )
 {
 	double Sin = sin(a[ind_W]*x + a[ind_x0]);
@@ -109,5 +123,5 @@ double * Sin2FuncParams::PrepareDerivBuf( const double &x, const double *a, cons
 
 double Sin2FitFunc::GetShift()
 {
-	return (M_PI - a[Sin2FuncParams::ind_x0])/(2*a[Sin2FuncParams::ind_W]);
+	return (status == GSL_SUCCESS ? (180.*a[Sin2FuncParams::ind_x0])/M_PI:0);
 }

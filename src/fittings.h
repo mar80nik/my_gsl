@@ -15,8 +15,8 @@ struct ParabolaFuncParams: public BaseForMultiFitterFuncParams
 	static double df_db(const double &x, const double *a, const size_t &p, double *c);	
 	static double df_dc(const double &x, const double *a, const size_t &p, double *c);	
 
-	ParabolaFuncParams( const DoubleArray& y, const DoubleArray& sigma ) : 
-		BaseForMultiFitterFuncParams(ind_max, y, sigma)
+	ParabolaFuncParams( const DoubleArray& x, const DoubleArray& y, const DoubleArray& sigma ) : 
+		BaseForMultiFitterFuncParams(ind_max, x, y, sigma)
 	{
 		pFunction = ParabolaFuncParams::func;
 		pDerivatives[ind_a] = df_da; pDerivatives[ind_b] = df_db; pDerivatives[ind_c] = df_dc;
@@ -50,8 +50,8 @@ struct KneeFuncParams: public BaseForMultiFitterFuncParams
 	static double df_dC(const double &x, const double *a, const size_t &p, double *c);	
 	static double df_dk(const double &x, const double *a, const size_t &p, double *c);	
 
-	KneeFuncParams( const DoubleArray& y, const DoubleArray& sigma ) : 
-		BaseForMultiFitterFuncParams(ind_max, y, sigma)
+	KneeFuncParams( const DoubleArray& x, const DoubleArray& y, const DoubleArray& sigma ) : 
+		BaseForMultiFitterFuncParams(ind_max, x, y, sigma)
 	{
 		pFunction = KneeFuncParams::func;
 		pDerivatives[ind_A] = df_dA; pDerivatives[ind_B] = df_dB; 
@@ -88,8 +88,8 @@ struct GaussFuncParams: public BaseForMultiFitterFuncParams
 	static double df_dx0(const double &x, const double *a, const size_t &p, double *c);	
 	static double df_db(const double &x, const double *a, const size_t &p, double *c);	
 
-	GaussFuncParams( const DoubleArray& y, const DoubleArray& sigma ) : 
-		BaseForMultiFitterFuncParams(ind_max, y, sigma)
+	GaussFuncParams( const DoubleArray& x, const DoubleArray& y, const DoubleArray& sigma ) : 
+		BaseForMultiFitterFuncParams(ind_max, x, y, sigma)
 	{
 		pFunction = GaussFuncParams::func;
 		pDerivatives[ind_A] = df_dA; pDerivatives[ind_x0] = df_dx0; 
@@ -120,15 +120,17 @@ struct Sin2FuncParams: public BaseForMultiFitterFuncParams
 	static double df_dx0(const double &x, const double *a, const size_t &p, double *c);	
 	static double df_dC(const double &x, const double *a, const size_t &p, double *c);	
 
-	Sin2FuncParams( const DoubleArray& y, const DoubleArray& sigma ) : 
-		BaseForMultiFitterFuncParams(ind_max, y, sigma)
+	virtual double * PrepareDerivBuf(const double &x, const double *a, const size_t &p);	
+
+	Sin2FuncParams(  const DoubleArray& x, const DoubleArray& y, const DoubleArray& sigma ) : 
+		BaseForMultiFitterFuncParams(ind_max, x, y, sigma)
 	{
 		pFunction = Sin2FuncParams::func;
 		pDerivatives[ind_A] = df_dA;	pDerivatives[ind_W] = df_dW; 
 		pDerivatives[ind_x0] = df_dx0;	pDerivatives[ind_C] = df_dC; 
 	}
-	virtual double * PrepareDerivBuf(const double &x, const double *a, const size_t &p);	
-};//////////////////////////////////////////////////////////////////////////
+};
+//////////////////////////////////////////////////////////////////////////
 
 
 class Sin2FitFunc: public MultiFitterTemplate<Sin2FuncParams>

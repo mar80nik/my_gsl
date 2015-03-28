@@ -368,34 +368,35 @@ typedef double (*pFunc)(const double &x, const double *a, const size_t &p);
 typedef double (*pDerivFunc)(const double &x, const double *a, const size_t &p, double *c);
 struct BaseForMultiFitterFuncParams:public BaseForFuncParams
 {
+protected:
+	size_t n, p; 
 public:
-	size_t n, p; const double *y; double *sigma;
+	const double *x; const double *y; double *sigma;
 	pDerivFunc *pDerivatives; pFunc pFunction;
 
-	BaseForMultiFitterFuncParams(const size_t _p, const DoubleArray &_y, const DoubleArray &_sigma);
+	BaseForMultiFitterFuncParams(const size_t _p, const DoubleArray &_x, const DoubleArray &_y, const DoubleArray &_sigma);
 	virtual ~BaseForMultiFitterFuncParams();
 	virtual double * PrepareDerivBuf(const double &x, const double *a, const size_t &p) { return NULL; };
 	size_t GetPointsNum() {return n;}
-	int f(const gsl_vector * a, gsl_vector * f);
-	int df(const gsl_vector * a, gsl_matrix * J);
+	size_t GetParamsNum() {return p;}
+	HRESULT Check_n_p() { return (n < p ? E_FAIL:S_OK);}
+	virtual int f(const gsl_vector * a, gsl_vector * f);
+	virtual int df(const gsl_vector * a, gsl_matrix * J);
 	int FillSigma(const DoubleArray &sigma);
 };
 
 struct BaseForFitFunc
 {
-	double leftmostX, rightmostX, dx;
 	DoubleArray a, da; pFunc pFunction;
 
-	BaseForFitFunc() { leftmostX = rightmostX = dx = 0; pFunction = NULL;}
+	BaseForFitFunc() { pFunction = NULL;}
 	double GetXabsY(const double &x);
-	double GetXrelY(double &x);
-	HRESULT MakeGraph(DoubleArray &x, DoubleArray &y);
+	virtual HRESULT MakeGraph(DoubleArray &x, DoubleArray &y, double leftmostX, double rightmostX, unsigned int  N = 100 );
 	BaseForFitFunc& operator=(const BaseForFitFunc& t)
 	{
 		a.RemoveAll(); da.RemoveAll();
 		a.Copy(t.a); da.Copy(t.da);
-		leftmostX = t.leftmostX; rightmostX = t.rightmostX; dx = t.dx;
-		pFunction = t.pFunction;
+		pFunction = t.pFunction; 
 		return *this;
 	}
 };
@@ -406,7 +407,6 @@ class MultiFitterTemplate: public SolverData, public BaseForFitFunc
 private:
 	const gsl_multifit_fdfsolver_type *multifit_fdfsolver_type; 
 	gsl_multifit_fdfsolver *s; 
-	size_t n, p;	
 	gsl_multifit_function_fdf F;
 	gsl_vector* initX;
 	FuncParams*	params;
@@ -447,8 +447,8 @@ public:
 	}
 	int CalculateFrom(const DoubleArray& x, const DoubleArray& y, const DoubleArray& sigma, DoubleArray& init_a)
 	{
-		FuncParams params(y, sigma); 
-		leftmostX = x[0]; rightmostX = x[params.n - 1]; dx = (rightmostX - leftmostX)/(params.n - 1);
+		size_t n = x.GetSize();
+		FuncParams params(x, y, sigma); 
 		pFunction = params.pFunction;
 		Run(&params, init_a, SolverErrors(1e-6));
 		return status;
@@ -461,7 +461,7 @@ public:
 		{
 			for(int i = 0; i < a.GetSize(); i++)
 			{
-				log.T.Format("a%d = %g +/- %g%%", i, a[i], 100*da[i]/a[i]); log << log.T;
+				log.T.Format("a%d = %g (%g) +/- %g%%", i, a[i], gsl_vector_get(initX, i), 100*da[i]/a[i]); log << log.T;
 			}
 		}
 		else
@@ -469,7 +469,7 @@ public:
 			log.SetPriority(lmprHIGH);
 			for(int i = 0; i < a.GetSize(); i++)
 			{
-				log.T.Format("a%d = %g", i, a[i]); log << log.T;
+				log.T.Format("a%d = %g (%g)", i, a[i], gsl_vector_get(initX, i)); log << log.T;
 			}
 		}
 		log.T.Format("time = %g ms", dt.val()); log << log.T;
@@ -482,48 +482,64 @@ public:
 		*((SolverData*)this) = t;
 		return *this;
 	}
+	virtual HRESULT MakeGraph(DoubleArray &x, DoubleArray &y, double leftmostX, double rightmostX, unsigned int  N = 100 )
+	{
+		if (status == GSL_SUCCESS)
+		{
+			return BaseForFitFunc::MakeGraph(x, y, leftmostX, rightmostX, N);
+		}
+		else
+		{
+			return E_FAIL;
+		}
+	}
 protected:
 	int Run(FuncParams* _params, DoubleArray& init_a, const SolverErrors &Err)
 	{
 		MyTimer Timer1; Timer1.Start(); CleanUp(); 
-		if ((params = _params) != NULL)
+		if ((params = _params) == NULL)
 		{
-			if (init_a.GetSize() == FuncParams::ind_max)
-			{
-				params->PrepareBuffers(); 
-				F.p = p = init_a.GetSize(); F.n = n = params->GetPointsNum(); 
-				initX = CreateGSLReplica(init_a); err = Err;
-				s = gsl_multifit_fdfsolver_alloc (multifit_fdfsolver_type, n, p);
-				gsl_multifit_fdfsolver_set (s, &F, initX);
-				do
-				{
-					cntr.iter++;
-					status = gsl_multifit_fdfsolver_iterate (s);
-					status = gsl_multifit_test_delta (s->dx, s->x, err.abs, err.rel);
-				}
-				while (status == GSL_CONTINUE && cntr.iter < max_iter);
-				Convert_gsl_vector_to_DoubleArray(s->x, a);
-				if (status == GSL_SUCCESS)
-				{
-					gsl_matrix *covar = gsl_matrix_alloc(p, p);
-					if (covar != NULL)
-					{
-						gsl_multifit_covar(s->J, 0.0, covar);
-						double c = GSL_MAX_DBL(1, gsl_blas_dnrm2(s->f) / sqrt((double)(n - p))); 
-						Convert_gsl_vector_to_DoubleArray(&((gsl_matrix_diagonal (covar)).vector), da);
-						for (int i = 0; i < da.GetSize(); i++)
-						{
-							da[i] = fabs(c*sqrt(da[i]));
-						}
-						gsl_matrix_free(covar);
-					}
-				}	
-				params->DestroyBuffers(); 
-			}
+			status = GSL_EINVAL;
+		}
+		else if (FAILED(params->Check_n_p()))
+		{
+			status = GSL_EINVAL;
+		}
+		else if (init_a.GetSize() != FuncParams::ind_max)
+		{
+			status = GSL_EINVAL;
 		}
 		else
 		{
-				status = GSL_EINVAL;
+			params->PrepareBuffers(); 
+			F.p = params->GetParamsNum(); F.n = params->GetPointsNum(); 
+			initX = CreateGSLReplica(init_a); err = Err;
+			s = gsl_multifit_fdfsolver_alloc (multifit_fdfsolver_type, F.n, F.p);
+			gsl_multifit_fdfsolver_set (s, &F, initX);
+			do
+			{
+				cntr.iter++;
+				status = gsl_multifit_fdfsolver_iterate (s);
+				status = gsl_multifit_test_delta (s->dx, s->x, err.abs, err.rel);
+			}
+			while (status == GSL_CONTINUE && cntr.iter < max_iter);
+			Convert_gsl_vector_to_DoubleArray(s->x, a);
+			if (status == GSL_SUCCESS)
+			{
+				gsl_matrix *covar = gsl_matrix_alloc(F.p, F.p);
+				if (covar != NULL)
+				{
+					gsl_multifit_covar(s->J, 0.0, covar);
+					double c = GSL_MAX_DBL(1, gsl_blas_dnrm2(s->f) / sqrt((double)(F.n - F.p))); 
+					Convert_gsl_vector_to_DoubleArray(&((gsl_matrix_diagonal (covar)).vector), da);
+					for (int i = 0; i < da.GetSize(); i++)
+					{
+						da[i] = fabs(c*sqrt(da[i]));
+					}
+					gsl_matrix_free(covar);
+				}
+			}	
+			params->DestroyBuffers(); 
 		}
 		dt=Timer1.StopStart(); params = NULL;
 		return status;
