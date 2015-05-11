@@ -24,7 +24,7 @@ int BaseForMultiFitterFuncParams::df( const gsl_vector * a, gsl_matrix * J )
 	double *c;
 	for (size_t i = 0; i < n; i++)
 	{
-		c = PrepareDerivBuf(i, a->data, p);
+		c = PrepareDerivBuf(x[i], a->data, p);
 		for (size_t j = 0; j < p; j++)
 		{
 			gsl_matrix_set (J, i, j, pDerivatives[j](x[i], a->data, p, c)/sigma[i]);		
