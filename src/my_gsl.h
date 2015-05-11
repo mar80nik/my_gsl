@@ -390,8 +390,10 @@ struct BaseForFitFunc
 	DoubleArray a, da; pFunc pFunction;
 
 	BaseForFitFunc() { pFunction = NULL;}
-	double GetXabsY(const double &x);
-	virtual HRESULT MakeGraph(DoubleArray &x, DoubleArray &y, double leftmostX, double rightmostX, unsigned int  N = 100 );
+	double GetXabsY(const double &x) const;
+	virtual HRESULT PrepareGraph(
+								DoubleArray &x, DoubleArray &y, 
+								const double leftmostX, const double rightmostX, const unsigned int  N = 100 ) const;
 	BaseForFitFunc& operator=(const BaseForFitFunc& t)
 	{
 		a.RemoveAll(); da.RemoveAll();
@@ -482,11 +484,12 @@ public:
 		*((SolverData*)this) = t;
 		return *this;
 	}
-	virtual HRESULT MakeGraph(DoubleArray &x, DoubleArray &y, double leftmostX, double rightmostX, unsigned int  N = 100 )
+	virtual HRESULT PrepareGraph(	DoubleArray &x, DoubleArray &y, 
+								const double leftmostX, const double rightmostX, const unsigned int  N = 100 ) const 
 	{
 		if (status == GSL_SUCCESS)
 		{
-			return BaseForFitFunc::MakeGraph(x, y, leftmostX, rightmostX, N);
+			return BaseForFitFunc::PrepareGraph(x, y, leftmostX, rightmostX, N);
 		}
 		else
 		{

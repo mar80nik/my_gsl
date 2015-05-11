@@ -94,7 +94,7 @@ int BaseForMultiFitterFuncParams::FillSigma(const DoubleArray &_sigma)
 }
 
 
-HRESULT BaseForFitFunc::MakeGraph(DoubleArray &x, DoubleArray &y, double leftmostX, double rightmostX, unsigned int N )
+HRESULT BaseForFitFunc::PrepareGraph(DoubleArray &x, DoubleArray &y, const double leftmostX, const double rightmostX, const unsigned int N ) const 
 {
 	if (pFunction != NULL && N > 0 )
 	{
@@ -114,7 +114,10 @@ HRESULT BaseForFitFunc::MakeGraph(DoubleArray &x, DoubleArray &y, double leftmos
 }
 
 //////////////////////////////////////////////////////////////////////////
-double BaseForFitFunc::GetXabsY( const double &x ) { return pFunction(x, a, a.GetSize()); }
+double BaseForFitFunc::GetXabsY( const double &x ) const 
+{ 
+	return pFunction(x, a, a.GetSize()); 
+}
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 ComplexGSL sqrt( ComplexGSL& c )	{ return ComplexGSL(gsl_complex_sqrt(c.z)); }
