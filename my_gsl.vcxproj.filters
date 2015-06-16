@@ -13,22 +13,28 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="my_lib">
+      <UniqueIdentifier>{dac918a1-872f-4306-af4c-4e60f29891c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{60e3e79c-8a71-4dc9-83de-acf86afe9079}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\my_gsl.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\my_lib\src\MyTime.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\fittings.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\my_gsl.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\my_lib\src\MyTime.cpp">
+      <Filter>my_lib</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -38,14 +44,14 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\my_gsl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="my_gslApp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\fittings.h">
-      <Filter>Source Files</Filter>
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\my_gsl.h">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

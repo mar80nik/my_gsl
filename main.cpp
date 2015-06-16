@@ -19,8 +19,8 @@ struct ParabolaFuncParams: public BaseForMultiFitterFuncParams
 	static double df_db(const double &x, const double *a, const size_t &p, double *c) {return 0;};	
 	static double df_dc(const double &x, const double *a, const size_t &p, double *c) {return 0;};	
 
-	ParabolaFuncParams( const DoubleArray& y, const DoubleArray& sigma ) : 
-		BaseForMultiFitterFuncParams(ind_max, y, sigma)
+	ParabolaFuncParams( const DoubleArray& x, const DoubleArray& y, const DoubleArray& sigma ) : 
+		BaseForMultiFitterFuncParams(ind_max, x, y, sigma)
 	{
 		pFunction = ParabolaFuncParams::func;
 		pDerivatives[ind_a] = df_da; pDerivatives[ind_b] = df_db; pDerivatives[ind_c] = df_dc;
