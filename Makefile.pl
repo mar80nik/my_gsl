@@ -1,7 +1,7 @@
 use Cwd;
 
-$repo_path = 'd:/REPO';
-$gitTags_file = cwd.'/gitTags';
+$repo_path = '..';
+$gitTags_file = 'gitTags';
 $reps = [   {path => $repo_path.'/my_lib', tag_mask => '102001_MY_LIB[\w\d]+'}  ];
 
 open(LABELS,"$gitTags_file");

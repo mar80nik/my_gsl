@@ -29,3 +29,6 @@ _ReSharper*/
 *.*sdf
 ipch/
 *.pdf
+dll/
+!dll/cblas
+!dll/gsl
